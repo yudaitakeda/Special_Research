@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>視線ヒートマップ</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        canvas {
+            border: 1px solid #ddd;
+            display: block;
+        }
+    </style>
+</head>
+<body>
+
+<canvas id="heatmapCanvas"></canvas>
+
+<script>
+    const canvas = document.getElementById("heatmapCanvas");
+    const ctx = canvas.getContext("2d");
+
+    // Canvasのサイズを画面に合わせる
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    // ヒートマップのデータ
+    let gazeData = [];
+
+    // 視線データを定期的に取得
+    function fetchGazeData() {
+        fetch('/gaze_data')
+            .then(response => response.json())
+            .then(data => {
+                gazeData = data; // 最新の視線データを取得
+                renderHeatmap();
+            })
+            .catch(error => console.error("視線データの取得に失敗しました:", error));
+    }
+
+    // ヒートマップの描画
+    function renderHeatmap() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height); // キャンバスをクリア
+
+        // ヒートマップのための視線データを描画
+        gazeData.forEach(point => {
+            const x = point.x * canvas.width;
+            const y = point.y * canvas.height;
+
+            // 視線の位置に円を描く
+            ctx.beginPath();
+            ctx.arc(x, y, 30, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(255, 0, 0, 0.5)'; // 赤色の半透明円
+            ctx.fill();
+        });
+    }
+
+    // 2秒ごとに視線データを取得
+    setInterval(fetchGazeData, 2000);
+</script>
+
+</body>
+</html>
+
+

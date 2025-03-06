@@ -1,0 +1,56 @@
+body {
+    height: 3000px;
+    font-size: 18px;
+    line-height: 1.6;
+}
+
+.scroll-zone {
+    position: fixed;
+    height: 100px;
+    width: 100%;
+    background-color: rgba(0, 0, 255, 0.2);
+}
+
+.scroll-zone.top {
+    top: 0;
+}
+
+.scroll-zone.bottom {
+    bottom: 0;
+}
+
+#gaze-indicator {
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    background-color: red;
+    border-radius: 50%;
+    pointer-events: none;
+}
+
+#page-number {
+    position: fixed;
+    top: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 20px;
+    background-color: rgba(255, 255, 255, 0.8);
+    padding: 5px;
+}
+
+.nav-zone {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    width: 50px;
+}
+
+.nav-zone.left {
+    left: 0;
+    background-color: rgba(255, 0, 0, 0.2);
+}
+
+.nav-zone.right {
+    right: 0;
+    background-color: rgba(0, 255, 0, 0.2);
+}
