@@ -1,107 +1,101 @@
-<!DOCTYPE html>
-<html lang="ja">
+<!DOCTYPE html> <!-- HTML5の宣言 -->
+<html lang="ja"> <!-- 日本語のページであることを指定 -->
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>視線スクロールテスト</title>
+    <meta charset="UTF-8"> <!-- 文字エンコーディングをUTF-8に設定 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"> <!-- レスポンシブデザイン対応 -->
+    <title>視線スクロールテスト</title> <!-- ページタイトルの設定 -->
     <style>
         body {
-            height: 2000px;
-            font-size: 18px;
-            line-height: 1.6;
-            overflow: hidden;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-direction: column;
+            height: 2000px; /* ページの高さを2000pxに設定（スクロール用） */
+            font-size: 18px; /* フォントサイズを18pxに設定 */
+            line-height: 1.6; /* 行の高さを1.6倍に設定 */
+            overflow: hidden; /* スクロールバーを非表示に */
+            display: flex; /* フレックスボックスを使用 */
+            /* align-items: center; 中央揃え */
+            /* justify-content: center; 水平方向中央揃え */
+            flex-direction: column; /* 縦方向に配置 */
         }
         .page-button {
-            position: fixed;
-            top: 10px;
-            width: 80px;
-            height: 80px;
-            background-color: rgba(0, 0, 255, 0.2);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 18px;
-            font-weight: bold;
-            color: black;
-            cursor: pointer;
+            position: fixed; /* 画面上で固定 */
+            top: 10px; /* 上から10pxの位置 */
+            width: 80px; /* ボタンの幅 */
+            height: 80px; /* ボタンの高さ */
+            background-color: rgba(0, 0, 255, 0.2); /* 青の透明背景 */
+            display: flex; /* フレックスボックスを使用 */
+            align-items: center; /* 中央揃え */
+            justify-content: center; /* 水平方向中央揃え */
+            font-size: 18px; /* フォントサイズ */
+            font-weight: bold; /* 太字 */
+            color: black; /* テキストカラー */
+            cursor: pointer; /* マウスカーソルをポインタに */
         }
         #page-content {
-            text-align: center;
-            margin-top: 100px;
-            font-size: 32px;
+            text-align: center; /* テキストを中央揃え */
+            margin-top: 100px; /* 上部マージン */
+            font-size: 32px; /* フォントサイズ */
         }
         #page-number {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            font-size: 18px;
+            position: fixed; /* 画面下に固定 */
+            bottom: 20px; /* 下から20pxの位置 */
+            right: 20px; /* 右から20pxの位置 */
+            font-size: 18px; /* フォントサイズ */
         }
     </style>
 </head>
 <body>
-    <div class="content">
-        <h1>視線スクロールテスト</h1>
-        <p id="page-content">{{ page_text }}</p>
-        <a href="/distance_travelled">視線移動距離のページを見る</a>
+    <div class="content"> <!-- コンテンツ全体を囲む要素 -->
+        <h1>視線スクロールテスト</h1> <!-- タイトル -->
+        <p id="page-content">{{ page_text }}</p> <!-- ページの内容（動的に変更される） -->
+        <a href="/distance_travelled">視線移動距離のページを見る</a> <!-- 別ページへのリンク -->
     </div>
-    <div id="page-number" class="page-number">Page: 1</div>
+    <div id="page-number" class="page-number">Page: 1</div> <!-- ページ番号表示 -->
 
     <script>
-        let hasScrolled = false;
-        let lastGazeX = 0;
+        let hasScrolled = false; // スクロールしたかどうかのフラグ
+        let lastGazeX = 0; // 前回の視線X座標
 
         function updatePageContent(pageNumber) {
-            const contentElement = document.getElementById('page-content');
+            const contentElement = document.getElementById('page-content'); // ページ内容の要素取得
             contentElement.textContent = `
           ${contentText}
-          Page: ${pageNumber}`;
+          Page: ${pageNumber}`; // ページの内容を更新
         }
 
         function getGazeData() {
-            fetch('/gaze_data')
-                .then(response => response.json())
-                .then(data => {
-                    const x = data.x;
-                    const currentTime = Date.now();
+    fetch('/gaze_data') // サーバーから視線データを取得
+        .then(response => response.json()) // JSONとして解析
+        .then(data => {
+            const x = data.x; // 視線のX座標を取得
+            const y = data.y; // 視線のY座標を取得
+            const currentTime = Date.now(); // 現在の時間を取得
 
-                    // 左から中央へ移動したときに一度だけスクロール
-                    if (x > 0.9 && !hasScrolled && lastGazeX < x) {
-                        window.scrollBy(0, 30); // 30px下にスクロール
-                        hasScrolled = true;
-                    } else if (x < 0.5) { // 左に戻ったらリセット
-                        hasScrolled = false;
-                    }
+            // 視線が右端に行った際に一度だけスクロール
+            if (x > 0.9 && !hasScrolled && lastGazeX < x) {
+                window.scrollBy(0, 30); // 30px下にスクロール
+                hasScrolled = true; // スクロール済みフラグを設定
+            } else if (x < 0.5) { // 視線が左に戻ったらリセット
+                hasScrolled = false;
+            }
 
-                    lastGazeX = x; // 前回のX位置を更新
-                })
-                .catch(error => console.error("視線データ取得エラー:", error));
-        }
+            // 左上(視線がx < 0.2, y < 0.2)を一定時間(500ms)見つめると1行上に戻す
+            if (x < 0.2 ) {
+                if (!scrollBackStartTime) {
+                    scrollBackStartTime = currentTime; // 開始時間を記録
+                } else if (currentTime - scrollBackStartTime > 500) { // 500ms経過
+                    window.scrollBy(0, -30); // 30px上にスクロール
+                    scrollBackStartTime = null; // タイマーをリセット
+                }
+            } else {
+                scrollBackStartTime = null; // 視線が外れたらリセット
+            }
 
-        // 定期的に視線データを取得
+            lastGazeX = x; // 視線X座標を更新
+        })
+        .catch(error => console.error("視線データ取得エラー:", error)); // エラー処理
+}
+
+        // 100msごとに視線データを取得
         setInterval(getGazeData, 100);
     </script>
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
