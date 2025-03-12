@@ -70,15 +70,15 @@
             const currentTime = Date.now(); // 現在の時間を取得
 
             // 視線が右端に行った際に一度だけスクロール
-            if (x > 0.9 && !hasScrolled && lastGazeX < x) {
+            if (x > 0.8 && !hasScrolled && lastGazeX < x) {
                 window.scrollBy(0, 30); // 30px下にスクロール
                 hasScrolled = true; // スクロール済みフラグを設定
             } else if (x < 0.5) { // 視線が左に戻ったらリセット
                 hasScrolled = false;
             }
 
-            // 左上(視線がx < 0.2, y < 0.2)を一定時間(500ms)見つめると1行上に戻す
-            if (x < 0.2 ) {
+            // 左上(視線がx < 0.2)を一定時間(500ms)見つめると1行上に戻す
+            if (x < 0.2 && y < 0.5) {
                 if (!scrollBackStartTime) {
                     scrollBackStartTime = currentTime; // 開始時間を記録
                 } else if (currentTime - scrollBackStartTime > 500) { // 500ms経過
