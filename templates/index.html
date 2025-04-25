@@ -5,21 +5,27 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>視線スクロールテスト</title>
     <style>
-        /* ページ全体のスタイル設定 */
         body {
-            height: 2000px; /* 長いページを作成 */
+            height: 2000px;
             font-size: 18px;
             line-height: 1.6;
-            overflow: hidden; /* スクロールバー非表示 */
+            overflow: hidden;
             display: flex;
             flex-direction: column;
         }
 
-        /* アイコン共通スタイル（固定位置に表示） */
-        .scroll-icon {
+        /* 横並びにする親コンテナ */
+        .scroll-icon-container {
             position: fixed;
+            bottom: 40px;
             left: 50%;
             transform: translateX(-50%);
+            display: flex;
+            gap: 70px; /* 上下のときの感覚に近い距離 */
+        }
+
+        /* アイコンの共通スタイル */
+        .scroll-icon {
             width: 60px;
             height: 60px;
             background-color: rgba(0, 255, 0, 0.2);
@@ -30,23 +36,11 @@
             font-size: 24px;
         }
 
-        /* 上方向アイコンの位置 */
-        #scroll-icon {
-            bottom: 110px;
-        }
-
-        /* 下方向アイコンの位置 */
-        #scroll-icon-down {
-            bottom: 40px;
-        }
-
-        /* ページ内容 */
         #page-content {
             margin-top: 100px;
             font-size: 32px;
         }
 
-        /* ページ番号の表示 */
         #page-number {
             position: fixed;
             bottom: 20px;
@@ -56,31 +50,28 @@
     </style>
 </head>
 <body>
-    <!-- ページ本文 -->
     <div class="content">
         <h1>視線スクロールテスト</h1>
-        <p id="page-content">{{ page_text }}</p> <!-- Flask等で動的にテキストを挿入 -->
+        <p id="page-content">{{ page_text }}</p>
         <a href="/distance_travelled">視線移動距離のページを見る</a>
     </div>
 
-    <!-- ページ番号 -->
     <div id="page-number">Page: 1</div>
 
-    <!-- 上にスクロールするための視線アイコン -->
-    <div id="scroll-icon" class="scroll-icon">⬆️</div>
-
-    <!-- 下にスクロールするための視線アイコン -->
-    <div id="scroll-icon-down" class="scroll-icon">⬇️</div>
+    <!-- 横並びに変更したアイコン -->
+    <div class="scroll-icon-container">
+        <div id="scroll-icon" class="scroll-icon">⬆️</div>
+        <div id="scroll-icon-down" class="scroll-icon">⬇️</div>
+    </div>
 
     <script>
-        let hasScrolled = false;           // 自動スクロール済みかどうか
-        let lastGazeX = 0;                 // 直前の視線X座標
-        let scrollBackStartTime = null;    // 上スクロールのための時間記録
+        let hasScrolled = false;
+        let lastGazeX = 0;
+        let scrollBackStartTime = null;
 
-        let gazeTimer = null;              // 上向き注視タイマー
-        let gazeTimerDown = null;          // 下向き注視タイマー
+        let gazeTimer = null;
+        let gazeTimerDown = null;
 
-        // 上方向アイコンに視線があるかチェックし、2秒間注視で上スクロール
         function checkGazeOnIcon(x, y) {
             const icon = document.getElementById('scroll-icon');
             const rect = icon.getBoundingClientRect();
@@ -106,10 +97,9 @@
                         });
 
                         gazeTimer = null;
-                    }, 1000); // 2秒注視で発動
+                    }, 1000);
                 }
             } else {
-                // 視線が外れたらタイマーキャンセル
                 if (gazeTimer) {
                     clearTimeout(gazeTimer);
                     gazeTimer = null;
@@ -117,7 +107,6 @@
             }
         }
 
-        // 下方向アイコンに視線があるかチェックし、2秒間注視で下スクロール
         function checkGazeOnDownIcon(x, y) {
             const icon = document.getElementById('scroll-icon-down');
             const rect = icon.getBoundingClientRect();
@@ -143,10 +132,9 @@
                         });
 
                         gazeTimerDown = null;
-                    }, 1000); // 2秒注視で発動
+                    }, 1000);
                 }
             } else {
-                // 視線が外れたらタイマーキャンセル
                 if (gazeTimerDown) {
                     clearTimeout(gazeTimerDown);
                     gazeTimerDown = null;
@@ -154,16 +142,14 @@
             }
         }
 
-        // 視線データを取得し処理する関数
         function getGazeData() {
-            fetch('/gaze_data') // サーバーから視線データ取得
+            fetch('/gaze_data')
                 .then(response => response.json())
                 .then(data => {
-                    const x = data.x; // 視線X座標（0〜1）
-                    const y = data.y; // 視線Y座標（0〜1）
+                    const x = data.x;
+                    const y = data.y;
                     const currentTime = Date.now();
 
-                    // 視線が右端に向いたら下スクロール（1回のみ）
                     if (x > 0.8 && !hasScrolled && lastGazeX < x) {
                         window.scrollBy(0, 30);
                         hasScrolled = true;
@@ -171,7 +157,6 @@
                         hasScrolled = false;
                     }
 
-                    // 視線が左上に行ったらスクロールバック（0.5秒間視線が継続された場合）
                     if (x < 0.2 && y < 0.5) {
                         if (!scrollBackStartTime) {
                             scrollBackStartTime = currentTime;
@@ -183,16 +168,14 @@
                         scrollBackStartTime = null;
                     }
 
-                    // 視線アイコンに視線があるか判定
-                    checkGazeOnIcon(x, y);       // 上向き処理
-                    checkGazeOnDownIcon(x, y);   // 下向き処理
+                    checkGazeOnIcon(x, y);
+                    checkGazeOnDownIcon(x, y);
 
                     lastGazeX = x;
                 })
                 .catch(error => console.error("視線データ取得エラー:", error));
         }
 
-        // 100msごとに視線データ取得・処理
         setInterval(getGazeData, 100);
     </script>
 </body>
