@@ -6,7 +6,7 @@
     <title>視線スクロールテスト</title>
     <style>
         body {
-            height: 2000px;
+            height: 2000px; /* ページを縦長にする */
             font-size: 18px;
             line-height: 1.6;
             overflow: hidden;
@@ -14,17 +14,17 @@
             flex-direction: column;
         }
 
-        /* 横並びにする親コンテナ */
+        /* アイコンを横並びにするコンテナ */
         .scroll-icon-container {
             position: fixed;
             bottom: 40px;
             left: 50%;
             transform: translateX(-50%);
             display: flex;
-            gap: 70px; /* 上下のときの感覚に近い距離 */
+            gap: 70px;
         }
 
-        /* アイコンの共通スタイル */
+        /* 上下スクロールアイコンのスタイル */
         .scroll-icon {
             width: 60px;
             height: 60px;
@@ -58,20 +58,21 @@
 
     <div id="page-number">Page: 1</div>
 
-    <!-- 横並びに変更したアイコン -->
+    <!-- スクロールアイコン（⬆️⬇️） -->
     <div class="scroll-icon-container">
         <div id="scroll-icon" class="scroll-icon">⬆️</div>
         <div id="scroll-icon-down" class="scroll-icon">⬇️</div>
     </div>
 
     <script>
-        let hasScrolled = false;
-        let lastGazeX = 0;
-        let scrollBackStartTime = null;
+        let hasScrolled = false;          // スクロール済みフラグ
+        let lastGazeX = 0;                // 前回の視線x座標
+        let scrollBackStartTime = null;   // 戻りスクロールのタイミング
 
-        let gazeTimer = null;
-        let gazeTimerDown = null;
+        let gazeTimer = null;             // 上スクロール用タイマー
+        let gazeTimerDown = null;         // 下スクロール用タイマー
 
+        // 上の⬆️アイコンを注視しているかどうか判定し、スクロール
         function checkGazeOnIcon(x, y) {
             const icon = document.getElementById('scroll-icon');
             const rect = icon.getBoundingClientRect();
@@ -97,7 +98,7 @@
                         });
 
                         gazeTimer = null;
-                    }, 1000);
+                    }, 1000); // 1秒注視でスクロール
                 }
             } else {
                 if (gazeTimer) {
@@ -107,6 +108,7 @@
             }
         }
 
+        // 下の⬇️アイコンを注視しているかどうか判定し、スクロール
         function checkGazeOnDownIcon(x, y) {
             const icon = document.getElementById('scroll-icon-down');
             const rect = icon.getBoundingClientRect();
@@ -122,17 +124,9 @@
             if (insideIcon) {
                 if (!gazeTimerDown) {
                     gazeTimerDown = setTimeout(() => {
-                        const currentScroll = window.scrollY;
-                        const scrollAmount = window.innerHeight / 2;
-                        const targetPosition = Math.min(document.body.scrollHeight, currentScroll + scrollAmount);
-
-                        window.scrollTo({
-                            top: targetPosition,
-                            behavior: 'smooth'
-                        });
-
+                        scrollDownByHalfScreen();
                         gazeTimerDown = null;
-                    }, 1000);
+                    }, 1000); // 1秒注視でスクロール
                 }
             } else {
                 if (gazeTimerDown) {
@@ -142,6 +136,22 @@
             }
         }
 
+        // 下に半画面スクロールする処理（⬇️アイコンと同じ動作）
+        function scrollDownByHalfScreen() {
+            const currentScroll = window.scrollY;
+            const scrollAmount = window.innerHeight / 2;
+            const targetPosition = Math.min(document.body.scrollHeight, currentScroll + scrollAmount);
+
+            window.scrollTo({
+                top: targetPosition,
+                behavior: 'smooth'
+            });
+        }
+
+        
+        let hasScrolledX = false;
+        let hasScrolledY = false;
+        // サーバーから視線データを取得し、スクロール制御を行う関数
         function getGazeData() {
             fetch('/gaze_data')
                 .then(response => response.json())
@@ -150,32 +160,50 @@
                     const y = data.y;
                     const currentTime = Date.now();
 
-                    if (x > 0.8 && !hasScrolled && lastGazeX < x) {
+
+                    // 横方向の視線が右側に移動したときに下スクロール（例: x > 0.8）
+                    if (x > 0.8 && !hasScrolledX && lastGazeX < x) {
                         window.scrollBy(0, 30);
-                        hasScrolled = true;
+                        hasScrolledX = true;
                     } else if (x < 0.5) {
-                        hasScrolled = false;
+                        hasScrolledX = false;
                     }
 
+                    // y方向が画面下部に到達したときに半画面スクロール
+                    if (y > 0.8 && !hasScrolledY && lastGazeX < y) {
+                        scrollDownByHalfScreen();
+                        hasScrolledY = true;
+                    } else if (y < 0.5) {
+                        hasScrolledY = false;
+                    }
+
+                    // 左上方向を一定時間見つめるとページの一番上に戻る
                     if (x < 0.2 && y < 0.5) {
                         if (!scrollBackStartTime) {
                             scrollBackStartTime = currentTime;
                         } else if (currentTime - scrollBackStartTime > 500) {
-                            window.scrollBy(0, -30);
+                            // ページの一番上にスムーズにスクロールする
+                            window.scrollTo({
+                                top: 0,
+                                behavior: 'smooth'
+                            });
                             scrollBackStartTime = null;
                         }
                     } else {
                         scrollBackStartTime = null;
                     }
 
+                    // アイコン注視によるスクロールのチェック
                     checkGazeOnIcon(x, y);
                     checkGazeOnDownIcon(x, y);
 
+                    // 前回の視線座標を記録
                     lastGazeX = x;
                 })
                 .catch(error => console.error("視線データ取得エラー:", error));
         }
 
+        // 100ミリ秒ごとに視線データ取得
         setInterval(getGazeData, 100);
     </script>
 </body>
