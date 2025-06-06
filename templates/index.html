@@ -4,7 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>視線スクロールテスト</title>
-
   <style>
     body {
       height: 2000px;
@@ -81,17 +80,58 @@
   </div>
 
   <script>
-    let hasScrolled = false;
     let lastGazeX = 0;
+    let lastGazePosition = null;
+    let gazeHoldStartTime = null;
+    const HOLD_DURATION = 500;
     let hasScrolledX = false;
     let hasScrolledY = false;
     let scrollBackStartTime = null;
     let gazeTimer = null;
     let gazeTimerDown = null;
 
-    let lastGazePosition = null;
-    let gazeHoldStartTime = null;
-    const HOLD_DURATION = 500;
+    function scrollDownAndMoveCursorUp(startX, startY) {
+      const scrollAmount = window.innerHeight / 2;
+      const startScroll = window.scrollY;
+      const targetScroll = Math.min(document.body.scrollHeight, startScroll + scrollAmount);
+      const startTime = performance.now();
+      const duration = 1000;
+
+      const cursor = document.getElementById('gaze-cursor');
+      const startCursorY = window.innerHeight * startY;
+      const targetCursorY = Math.max(0, startCursorY - scrollAmount);
+      const startCursorX = window.innerWidth * startX;
+
+      function animate(time) {
+        const elapsed = time - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        const ease = progress < 0.5
+          ? 2 * progress * progress
+          : -1 + (4 - 2 * progress) * progress;
+
+        const newScroll = startScroll + (targetScroll - startScroll) * ease;
+        const newCursorY = startCursorY + (targetCursorY - startCursorY) * ease;
+
+        window.scrollTo(0, newScroll);
+        cursor.style.top = `${newCursorY}px`;
+        cursor.style.left = `${startCursorX}px`;
+        cursor.style.display = 'flex';
+
+        if (progress < 1) {
+          requestAnimationFrame(animate);
+        } else {
+          setTimeout(() => {
+            cursor.style.display = 'none';
+          }, 500);
+        }
+      }
+      requestAnimationFrame(animate);
+    }
+
+    function isSamePosition(pos1, pos2) {
+      const THRESHOLD = 0.01;
+      return Math.abs(pos1.x - pos2.x) < THRESHOLD && Math.abs(pos1.y - pos2.y) < THRESHOLD;
+    }
 
     function checkGazeOnIcon(x, y) {
       const icon = document.getElementById('scroll-icon');
@@ -99,25 +139,17 @@
       const screenX = window.innerWidth * x;
       const screenY = window.innerHeight * y;
 
-      const insideIcon = screenX >= rect.left && screenX <= rect.right &&
-                         screenY >= rect.top && screenY <= rect.bottom;
-
-      if (insideIcon) {
+      if (screenX >= rect.left && screenX <= rect.right && screenY >= rect.top && screenY <= rect.bottom) {
         if (!gazeTimer) {
           gazeTimer = setTimeout(() => {
-            const currentScroll = window.scrollY;
             const scrollAmount = window.innerHeight / 2;
-            const targetPosition = Math.max(0, currentScroll - scrollAmount);
-
-            window.scrollTo({ top: targetPosition, behavior: 'smooth' });
+            window.scrollTo({ top: Math.max(0, window.scrollY - scrollAmount), behavior: 'smooth' });
             gazeTimer = null;
           }, 1000);
         }
-      } else {
-        if (gazeTimer) {
-          clearTimeout(gazeTimer);
-          gazeTimer = null;
-        }
+      } else if (gazeTimer) {
+        clearTimeout(gazeTimer);
+        gazeTimer = null;
       }
     }
 
@@ -127,74 +159,18 @@
       const screenX = window.innerWidth * x;
       const screenY = window.innerHeight * y;
 
-      const insideIcon = screenX >= rect.left && screenX <= rect.right &&
-                         screenY >= rect.top && screenY <= rect.bottom;
-
-      if (insideIcon) {
+      if (screenX >= rect.left && screenX <= rect.right && screenY >= rect.top && screenY <= rect.bottom) {
         if (!gazeTimerDown) {
           gazeTimerDown = setTimeout(() => {
-            scrollDownByHalfScreen();
+            const scrollAmount = window.innerHeight / 2;
+            window.scrollTo({ top: Math.min(document.body.scrollHeight, window.scrollY + scrollAmount), behavior: 'smooth' });
             gazeTimerDown = null;
           }, 1000);
         }
-      } else {
-        if (gazeTimerDown) {
-          clearTimeout(gazeTimerDown);
-          gazeTimerDown = null;
-        }
+      } else if (gazeTimerDown) {
+        clearTimeout(gazeTimerDown);
+        gazeTimerDown = null;
       }
-    }
-
-    function scrollDownByHalfScreen() {
-      const currentScroll = window.scrollY;
-      const scrollAmount = window.innerHeight / 2;
-      const targetPosition = Math.min(document.body.scrollHeight, currentScroll + scrollAmount);
-      window.scrollTo({ top: targetPosition, behavior: 'smooth' });
-    }
-
-    function scrollHalfDownSmoothly(startX, startY) {
-        const scrollAmount = window.innerHeight / 2;
-        const startScroll = window.scrollY;
-        const targetScroll = Math.min(document.body.scrollHeight, startScroll + scrollAmount);
-        const startTime = performance.now();
-        const duration = 1000;
-
-        const cursor = document.getElementById('gaze-cursor');
-        const startCursorY = window.innerHeight * startY;
-        const targetCursorY = startCursorY + scrollAmount; // ✅ 下へ
-        const startCursorX = window.innerWidth * startX;   // ✅ X固定
-
-        function animate(time) {
-            const elapsed = time - startTime;
-            const progress = Math.min(elapsed / duration, 1);
-            const ease = progress < 0.5
-            ? 2 * progress * progress
-            : -1 + (4 - 2 * progress) * progress;
-
-            const newScroll = startScroll + (targetScroll - startScroll) * ease;
-            const newCursorY = startCursorY + (targetCursorY - startCursorY) * ease;
-
-            window.scrollTo(0, newScroll);
-            cursor.style.top = `${newCursorY}px`;
-            cursor.style.left = `${startCursorX}px`;
-            cursor.style.display = 'flex';
-
-            if (progress < 1) {
-            requestAnimationFrame(animate);
-            } else {
-            setTimeout(() => {
-                cursor.style.display = 'none';
-            }, 500);
-            }
-        }
-
-    requestAnimationFrame(animate);
-    }
-
-
-    function isSamePosition(pos1, pos2) {
-      const THRESHOLD = 0.01;
-      return Math.abs(pos1.x - pos2.x) < THRESHOLD && Math.abs(pos1.y - pos2.y) < THRESHOLD;
     }
 
     function getGazeData() {
@@ -207,21 +183,19 @@
 
           const currentPosition = { x, y };
           const gazeCursor = document.getElementById('gaze-cursor');
+          gazeCursor.style.left = `${window.innerWidth * x}px`;
+          gazeCursor.style.top = `${window.innerHeight * y}px`;
 
           if (lastGazePosition && isSamePosition(currentPosition, lastGazePosition)) {
             if (!gazeHoldStartTime) {
               gazeHoldStartTime = currentTime;
             } else if (currentTime - gazeHoldStartTime >= HOLD_DURATION) {
-              scrollHalfDownSmoothly(x, y);
+              scrollDownAndMoveCursorUp(x, y);
               gazeHoldStartTime = null;
             }
           } else {
             gazeHoldStartTime = null;
-            gazeCursor.style.display = 'none';
           }
-
-          gazeCursor.style.left = `${window.innerWidth * x}px`;
-          gazeCursor.style.top = `${window.innerHeight * y}px`;
 
           if (x > 0.8 && !hasScrolledX && lastGazeX < x) {
             window.scrollBy(0, 30);
@@ -231,13 +205,14 @@
           }
 
           if (y > 0.8 && !hasScrolledY && lastGazeX < y) {
-            scrollDownByHalfScreen();
+            const scrollAmount = window.innerHeight / 2;
+            window.scrollTo({ top: Math.min(document.body.scrollHeight, window.scrollY + scrollAmount), behavior: 'smooth' });
             hasScrolledY = true;
           } else if (y < 0.5) {
             hasScrolledY = false;
           }
 
-          if (x < 0.2 && y < 0.5) {
+          if (x < 0.2 && y < 0.2) {
             if (!scrollBackStartTime) {
               scrollBackStartTime = currentTime;
             } else if (currentTime - scrollBackStartTime > 500) {
