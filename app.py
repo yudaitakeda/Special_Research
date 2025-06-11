@@ -4,8 +4,10 @@ import threading
 import math
 import csv
 import time
+from flask_cors import CORS  # ← 追加
 
 app = Flask(__name__)
+CORS(app)  # ← これで全オリジンからのアクセスを許可
 
 # 視線データを保持する変数
 gaze_data = {'x': 0, 'y': 0}
@@ -77,72 +79,4 @@ if __name__ == '__main__':
         tracking_thread.start()
 
     app.run(debug=True, port=5001)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
