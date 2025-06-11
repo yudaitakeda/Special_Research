@@ -1,0 +1,24 @@
+{
+  "manifest_version": 3,
+  "name": "Gaze Scroll Extension",
+  "version": "1.0",
+  "description": "Use gaze data from Flask server to scroll Chrome pages",
+  "permissions": [
+    "scripting",
+    "activeTab"
+  ],
+  "host_permissions": [
+    "<all_urls>",
+    "http://localhost:5001/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_title": "Gaze Scroll"
+  }
+}
