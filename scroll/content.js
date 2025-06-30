@@ -1,15 +1,14 @@
 (() => {
+  const HOLD_DURATION = 500;
   let lastGazeX = 0;
   let lastGazePosition = null;
   let gazeHoldStartTime = null;
-  const HOLD_DURATION = 500;
   let hasScrolledX = false;
-  let hasScrolledY = false;
   let scrollBackStartTime = null;
   let gazeTimerUp = null;
   let gazeTimerDown = null;
 
-  // カーソル要素を作成・初期化
+  // カーソル生成
   const CURSOR_ID = 'gaze-cursor';
   function createCursor() {
     if (document.getElementById(CURSOR_ID)) return;
@@ -26,61 +25,57 @@
       transform: 'translate(-50%, -50%)',
       zIndex: 9999,
       display: 'none',
-      alignItems: 'center',
-      justifyContent: 'center',
-      fontWeight: 'bold',
     });
     document.body.appendChild(cursor);
   }
 
-  // アニメーション：下にスクロールしつつカーソルを上に滑らか移動
-  function scrollDownAndMoveCursorUp(startX, startY) {
+  function scrollWithCursor(x, y, direction) {
     const scrollAmount = window.innerHeight / 2;
-    const startScroll = window.scrollY;
-    const targetScroll = Math.min(document.body.scrollHeight - window.innerHeight, startScroll + scrollAmount);
-    const startTime = performance.now();
-    const duration = 1000;
-
     const cursor = document.getElementById(CURSOR_ID);
-    const startCursorY = window.innerHeight * startY;
-    const targetCursorY = Math.max(0, startCursorY - scrollAmount);
-    const startCursorX = window.innerWidth * startX;
+    const startScrollX = window.scrollX;
+    const startScrollY = window.scrollY;
+    const targetScrollX = direction === 'left' ? Math.max(0, startScrollX - scrollAmount) :
+                         direction === 'right' ? startScrollX + scrollAmount : startScrollX;
+    const targetScrollY = direction === 'up' ? Math.max(0, startScrollY - scrollAmount) :
+                         direction === 'down' ? Math.min(document.body.scrollHeight - window.innerHeight, startScrollY + scrollAmount) :
+                         startScrollY;
+
+    const startCursorX = window.innerWidth * x;
+    const startCursorY = window.innerHeight * y;
+    const targetCursorY = direction === 'up' ? startCursorY - scrollAmount :
+                         direction === 'down' ? startCursorY + scrollAmount :
+                         startCursorY;
+
+    const startTime = performance.now();
+    const duration = 800;
 
     function animate(time) {
       const elapsed = time - startTime;
       const progress = Math.min(elapsed / duration, 1);
-      const ease = progress < 0.5
-        ? 2 * progress * progress
-        : -1 + (4 - 2 * progress) * progress;
+      const ease = progress < 0.5 ? 2 * progress * progress : -1 + (4 - 2 * progress) * progress;
 
-      const newScroll = startScroll + (targetScroll - startScroll) * ease;
-      const newCursorY = startCursorY + (targetCursorY - startCursorY) * ease;
-
-      window.scrollTo(0, newScroll);
-      cursor.style.top = `${newCursorY}px`;
+      window.scrollTo(
+        startScrollX + (targetScrollX - startScrollX) * ease,
+        startScrollY + (targetScrollY - startScrollY) * ease
+      );
       cursor.style.left = `${startCursorX}px`;
-      cursor.style.display = 'flex';
+      cursor.style.top = `${startCursorY + (targetCursorY - startCursorY) * ease}px`;
+      cursor.style.display = 'block';
 
-      if (progress < 1) {
-        requestAnimationFrame(animate);
-      } else {
-        setTimeout(() => {
-          cursor.style.display = 'none';
-        }, 500);
-      }
+      if (progress < 1) requestAnimationFrame(animate);
+      else setTimeout(() => cursor.style.display = 'none', 500);
     }
     requestAnimationFrame(animate);
   }
 
-  function isSamePosition(pos1, pos2) {
+  function isSamePosition(p1, p2) {
     const THRESHOLD = 0.01;
-    return Math.abs(pos1.x - pos2.x) < THRESHOLD && Math.abs(pos1.y - pos2.y) < THRESHOLD;
+    return Math.abs(p1.x - p2.x) < THRESHOLD && Math.abs(p1.y - p2.y) < THRESHOLD;
   }
 
-  // 上矢印アイコン注視チェック（1秒で上にスクロール）
   function checkGazeOnIcon(x, y) {
     const icon = document.getElementById('scroll-icon');
-    if (!icon) return false;
+    if (!icon) return;
     const rect = icon.getBoundingClientRect();
     const screenX = window.innerWidth * x;
     const screenY = window.innerHeight * y;
@@ -88,23 +83,19 @@
     if (screenX >= rect.left && screenX <= rect.right && screenY >= rect.top && screenY <= rect.bottom) {
       if (!gazeTimerUp) {
         gazeTimerUp = setTimeout(() => {
-          const scrollAmount = window.innerHeight / 2;
-          window.scrollTo({ top: Math.max(0, window.scrollY - scrollAmount), behavior: 'smooth' });
+          window.scrollBy({ top: -window.innerHeight / 2, behavior: 'smooth' });
           gazeTimerUp = null;
         }, 1000);
       }
-      return true;
     } else if (gazeTimerUp) {
       clearTimeout(gazeTimerUp);
       gazeTimerUp = null;
     }
-    return false;
   }
 
-  // 下矢印アイコン注視チェック（1秒で下にスクロール）
   function checkGazeOnDownIcon(x, y) {
     const icon = document.getElementById('scroll-icon-down');
-    if (!icon) return false;
+    if (!icon) return;
     const rect = icon.getBoundingClientRect();
     const screenX = window.innerWidth * x;
     const screenY = window.innerHeight * y;
@@ -112,20 +103,16 @@
     if (screenX >= rect.left && screenX <= rect.right && screenY >= rect.top && screenY <= rect.bottom) {
       if (!gazeTimerDown) {
         gazeTimerDown = setTimeout(() => {
-          const scrollAmount = window.innerHeight / 2;
-          window.scrollTo({ top: Math.min(document.body.scrollHeight - window.innerHeight, window.scrollY + scrollAmount), behavior: 'smooth' });
+          window.scrollBy({ top: window.innerHeight / 2, behavior: 'smooth' });
           gazeTimerDown = null;
         }, 1000);
       }
-      return true;
     } else if (gazeTimerDown) {
       clearTimeout(gazeTimerDown);
       gazeTimerDown = null;
     }
-    return false;
   }
 
-  // メインループ：視線データ取得＆処理
   function getGazeData() {
     fetch('http://localhost:5001/gaze_data')
       .then(response => response.json())
@@ -133,38 +120,39 @@
         const x = data.x;
         const y = data.y;
         const currentTime = Date.now();
-
         const currentPosition = { x, y };
-        const gazeCursor = document.getElementById(CURSOR_ID);
-        gazeCursor.style.left = `${window.innerWidth * x}px`;
-        gazeCursor.style.top = `${window.innerHeight * y}px`;
 
-        // 0.5秒注視で下にスクロール
+        const cursor = document.getElementById(CURSOR_ID);
+        cursor.style.left = `${window.innerWidth * x}px`;
+        cursor.style.top = `${window.innerHeight * y}px`;
+
+        // 左・右・上・下の領域注視によるスクロール
         if (lastGazePosition && isSamePosition(currentPosition, lastGazePosition)) {
-          if (!gazeHoldStartTime) {
-            gazeHoldStartTime = currentTime;
-          } else if (currentTime - gazeHoldStartTime >= HOLD_DURATION) {
-            scrollDownAndMoveCursorUp(x, y);
+          if (!gazeHoldStartTime) gazeHoldStartTime = currentTime;
+          else if (currentTime - gazeHoldStartTime >= HOLD_DURATION) {
+            if (x > 0.7 && y > 0.3 && y < 0.7) scrollWithCursor(x, y, 'right');
+            else if (x < 0.3 && y > 0.3 && y < 0.7) scrollWithCursor(x, y, 'left');
+            else if (y < 0.3 && x > 0.3 && x < 0.7) scrollWithCursor(x, y, 'up');
+            else if (y > 0.7 && x > 0.3 && x < 0.7) scrollWithCursor(x, y, 'down');
             gazeHoldStartTime = null;
           }
         } else {
           gazeHoldStartTime = null;
         }
 
-        // // 画面右下スクロール判定（y > 0.8） ※縦スクロールを滑らかに発火
-        // if (y > 0.8 && !hasScrolledY) {
-        //   const scrollAmount = window.innerHeight / 2;
-        //   window.scrollTo({ top: Math.min(document.body.scrollHeight - window.innerHeight, window.scrollY + scrollAmount), behavior: 'smooth' });
-        //   hasScrolledY = true;
-        // } else if (y < 0.5) {
-        //   hasScrolledY = false;
-        // }
+        // 横方向1行スクロール
+        if (x > 0.8 && !hasScrolledX && lastGazeX < x) {
+          console.log('横スクロールトリガー: x=', x);
+          window.scrollBy(0, 30);
+          hasScrolledX = true;
+        } else if (x < 0.5) {
+          hasScrolledX = false;
+        }
 
-        // 画面左上注視で一番上に戻る
+        // 左上注視でページ先頭へ
         if (x < 0.2 && y < 0.2) {
-          if (!scrollBackStartTime) {
-            scrollBackStartTime = currentTime;
-          } else if (currentTime - scrollBackStartTime > 500) {
+          if (!scrollBackStartTime) scrollBackStartTime = currentTime;
+          else if (currentTime - scrollBackStartTime > 500) {
             window.scrollTo({ top: 0, behavior: 'smooth' });
             scrollBackStartTime = null;
           }
@@ -178,10 +166,9 @@
         lastGazeX = x;
         lastGazePosition = currentPosition;
       })
-      .catch(error => {
-        console.error('視線データ取得エラー:', error);
-        const gazeCursor = document.getElementById(CURSOR_ID);
-        gazeCursor.style.display = 'none';
+      .catch(e => {
+        console.error('視線データ取得エラー:', e);
+        document.getElementById(CURSOR_ID).style.display = 'none';
       });
   }
 
