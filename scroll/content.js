@@ -69,7 +69,7 @@
   }
 
   function isSamePosition(p1, p2) {
-    const THRESHOLD = 0.01;
+    const THRESHOLD = 0.05;
     return Math.abs(p1.x - p2.x) < THRESHOLD && Math.abs(p1.y - p2.y) < THRESHOLD;
   }
 
