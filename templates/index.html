@@ -176,11 +176,13 @@
           if (lastGazePosition && isSamePosition(position, lastGazePosition)) {
             if (!gazeHoldStartTime) gazeHoldStartTime = currentTime;
             else if (currentTime - gazeHoldStartTime > HOLD_DURATION) {
-              if (x > 0.7 && y > 0.3 && y < 0.7) scrollWithCursor(x, y, 'right');
-              else if (x < 0.3 && y > 0.3 && y < 0.7) scrollWithCursor(x, y, 'left');
-              else if (y < 0.3 && x > 0.3 && x < 0.7) scrollWithCursor(x, y, 'up');
-              else if (y > 0.7 && x > 0.3 && x < 0.7) scrollWithCursor(x, y, 'down');
-              else scrollWithCursor(x, y, 'down');
+              // if (x > 0.7 && y > 0.3 && y < 0.7) scrollWithCursor(x, y, 'right');
+              // else if (x < 0.3 && y > 0.3 && y < 0.7) scrollWithCursor(x, y, 'left');
+              // 上方向：上端20%かつ 左右端20%以内
+            if (y < 0.2 && (x > 0.3 && x < 0.7)) scrollWithCursor(x, y, 'up');
+            // 下方向：下端20%かつ 左右端20%以内
+            else if (y > 0.8 && (x > 0.3 && x < 0.7)) scrollWithCursor(x, y, 'down');
+              // else scrollWithCursor(x, y, 'down');
               gazeHoldStartTime = null;
             }
           } else {
