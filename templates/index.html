@@ -179,9 +179,9 @@
               // if (x > 0.7 && y > 0.3 && y < 0.7) scrollWithCursor(x, y, 'right');
               // else if (x < 0.3 && y > 0.3 && y < 0.7) scrollWithCursor(x, y, 'left');
               // 上方向：上端20%かつ 左右端20%以内
-            if (y < 0.2 && (x > 0.3 && x < 0.7)) scrollWithCursor(x, y, 'up');
+            if (y < 0.1 && (x > 0.3 && x < 0.7)) scrollWithCursor(x, y, 'up');
             // 下方向：下端20%かつ 左右端20%以内
-            else if (y > 0.8 && (x > 0.3 && x < 0.7)) scrollWithCursor(x, y, 'down');
+            else if (y > 0.9 && (x > 0.3 && x < 0.7)) scrollWithCursor(x, y, 'down');
               // else scrollWithCursor(x, y, 'down');
               gazeHoldStartTime = null;
             }
@@ -190,12 +190,22 @@
           }
 
           // 横方向1行スクロール
-          if (x > 0.8 && !hasScrolledX && lastGazeX < x) {
-            window.scrollBy(0, 30);
-            hasScrolledX = true;
-          } else if (x < 0.5) {
-            hasScrolledX = false;
+          if (x > 0.8 && !hasScrolledX) {
+            hasScrolledX = true;  // 右端を注視したらフラグを立てる
+          } else if (x < 0.2 && hasScrolledX) {
+            window.scrollBy(0, 30); // xが0.8以下に戻ったタイミングでスクロール
+            hasScrolledX = false;   // フラグをリセット
           }
+          // ↓右端を見た時のスクロールコード
+          // 1.視線が右端（x > 0.8）にあり、
+          // 2.まだスクロールしていなくて、
+          // 3.視線が前回よりも右方向に動いているとき
+          // if (x > 0.8 && !hasScrolledX && lastGazeX < x) {
+          //   window.scrollBy(0, 30);
+          //   hasScrolledX = true;
+          // } else if (x < 0.5) {
+          //   hasScrolledX = false;
+          // }
 
           // 左上エリアで先頭に戻る
           if (x < 0.2 && y < 0.2) {
