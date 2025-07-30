@@ -1,4 +1,4 @@
-<!-- 視線使用 -->
+<!-- トラックパッド -->
 <!DOCTYPE html> <!-- HTML5の宣言 -->
 <html lang="ja"> <!-- 日本語のページであることを指定 -->
 <head>
@@ -10,7 +10,7 @@
             height: 2000px; /* ページの高さを2000pxに設定（スクロール用） */
             font-size: 18px; /* フォントサイズを18pxに設定 */
             line-height: 1.6; /* 行の高さを1.6倍に設定 */
-            overflow: hidden; /* スクロールバーを非表示に */
+            /* overflow: hidden; スクロールバーを非表示に */
             display: flex; /* フレックスボックスを使用 */
             /* align-items: center; 中央揃え */
             /* justify-content: center; 水平方向中央揃え */
@@ -72,7 +72,7 @@
 
             // 視線が右端に行った際に一度だけスクロール
             if (x > 0.8 && !hasScrolled && lastGazeX < x) {
-                window.scrollBy(0, 30); // 30px下にスクロール
+                // window.scrollBy(0, 30); // 30px下にスクロール
                 hasScrolled = true; // スクロール済みフラグを設定
             } else if (x < 0.5) { // 視線が左に戻ったらリセット
                 hasScrolled = false;
