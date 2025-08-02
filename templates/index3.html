@@ -1,0 +1,236 @@
+<!-- 視線戻ったとき -->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>視線スクロールテスト</title>
+  <style>
+    body {
+      height: 2000px;
+      font-size: 18px;
+      line-height: 1.6;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .scroll-icon-container {
+      position: fixed;
+      bottom: 40px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 70px;
+      display: none;
+    }
+    .scroll-icon {
+      width: 60px;
+      height: 60px;
+      background-color: rgba(0, 255, 0, 0.2);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+    }
+    #page-content {
+      margin-top: 100px;
+      font-size: 32px;
+    }
+    #page-number {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      font-size: 18px;
+    }
+    #gaze-cursor {
+      position: fixed;
+      width: 30px;
+      height: 30px;
+      background-color: transparent;
+      border: 3px solid red;
+      border-radius: 50%;
+      pointer-events: none;
+      transform: translate(-50%, -50%);
+      z-index: 9999;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="gaze-cursor"></div>
+  <div class="content">
+    <h1>視線スクロールテスト</h1>
+    <p id="page-content">{{ page_text }}</p>
+    <a href="/distance_travelled">視線移動距離のページを見る</a>
+  </div>
+  <div id="page-number">Page: 1</div>
+  <div class="scroll-icon-container">
+    <div id="scroll-icon" class="scroll-icon">⬆️</div>
+    <div id="scroll-icon-down" class="scroll-icon">⬇️</div>
+  </div>
+  <script>
+    let lastGazeX = 0;
+    let lastGazePosition = null;
+    let gazeHoldStartTime = null;
+    const HOLD_DURATION = 500;
+    let hasScrolledX = false;
+    let scrollBackStartTime = null;
+    let gazeTimer = null;
+    let gazeTimerDown = null;
+
+    function scrollWithCursor(x, y, direction) {
+      const cursor = document.getElementById('gaze-cursor');
+      const scrollAmount = window.innerHeight / 2;
+      const startScrollY = window.scrollY;
+      const startCursorY = window.innerHeight * y;
+      const startCursorX = window.innerWidth * x;
+
+      let deltaY = 0;
+      if (direction === 'up') deltaY = -scrollAmount;
+      if (direction === 'down') deltaY = scrollAmount;
+
+      const targetScroll = startScrollY + deltaY;
+      const targetCursorY = startCursorY - deltaY;
+      const startTime = performance.now();
+      const duration = 1000;
+
+      function animate(time) {
+        const elapsed = time - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        const ease = progress < 0.5
+          ? 2 * progress * progress
+          : -1 + (4 - 2 * progress) * progress;
+
+        const newScroll = startScrollY + deltaY * ease;
+        const newCursorY = startCursorY - deltaY * ease;
+
+        window.scrollTo(0, newScroll);
+        cursor.style.left = `${startCursorX}px`;
+        cursor.style.top = `${newCursorY}px`;
+        cursor.style.display = 'block';
+
+        if (progress < 1) {
+          requestAnimationFrame(animate);
+        } else {
+          setTimeout(() => cursor.style.display = 'none', 500);
+        }
+      }
+      requestAnimationFrame(animate);
+    }
+
+    function isSamePosition(pos1, pos2) {
+      const THRESHOLD = 0.05;
+      return Math.abs(pos1.x - pos2.x) < THRESHOLD && Math.abs(pos1.y - pos2.y) < THRESHOLD;
+    }
+
+    function checkGazeOnIcon(x, y) {
+      const icon = document.getElementById('scroll-icon');
+      const rect = icon.getBoundingClientRect();
+      const screenX = window.innerWidth * x;
+      const screenY = window.innerHeight * y;
+
+      if (screenX >= rect.left && screenX <= rect.right && screenY >= rect.top && screenY <= rect.bottom) {
+        if (!gazeTimer) {
+          gazeTimer = setTimeout(() => {
+            window.scrollBy({ top: -window.innerHeight / 2, behavior: 'smooth' });
+            gazeTimer = null;
+          }, 1000);
+        }
+      } else if (gazeTimer) {
+        clearTimeout(gazeTimer);
+        gazeTimer = null;
+      }
+    }
+
+    function checkGazeOnDownIcon(x, y) {
+      const icon = document.getElementById('scroll-icon-down');
+      const rect = icon.getBoundingClientRect();
+      const screenX = window.innerWidth * x;
+      const screenY = window.innerHeight * y;
+
+      if (screenX >= rect.left && screenX <= rect.right && screenY >= rect.top && screenY <= rect.bottom) {
+        if (!gazeTimerDown) {
+          gazeTimerDown = setTimeout(() => {
+            window.scrollBy({ top: window.innerHeight / 2, behavior: 'smooth' });
+            gazeTimerDown = null;
+          }, 1000);
+        }
+      } else if (gazeTimerDown) {
+        clearTimeout(gazeTimerDown);
+        gazeTimerDown = null;
+      }
+    }
+
+    function getGazeData() {
+      fetch('/gaze_data')
+        .then(res => res.json())
+        .then(data => {
+          const x = data.x;
+          const y = data.y;
+          const currentTime = Date.now();
+          const position = { x, y };
+
+          const cursor = document.getElementById('gaze-cursor');
+          cursor.style.left = `${window.innerWidth * x}px`;
+          cursor.style.top = `${window.innerHeight * y}px`;
+
+          if (lastGazePosition && isSamePosition(position, lastGazePosition)) {
+            if (!gazeHoldStartTime) gazeHoldStartTime = currentTime;
+            else if (currentTime - gazeHoldStartTime > HOLD_DURATION) {
+              // if (x > 0.7 && y > 0.3 && y < 0.7) scrollWithCursor(x, y, 'right');
+              // else if (x < 0.3 && y > 0.3 && y < 0.7) scrollWithCursor(x, y, 'left');
+              // 上方向：上端20%かつ 左右端20%以内
+            if (y < 0.2 && (x > 0.3 && x < 0.7)) scrollWithCursor(x, y, 'up');
+            // 下方向：下端20%かつ 左右端20%以内
+            else if (y > 0.9 && (x > 0.3 && x < 0.7)) scrollWithCursor(x, y, 'down');
+              // else scrollWithCursor(x, y, 'down');
+              gazeHoldStartTime = null;
+            }
+          } else {
+            gazeHoldStartTime = null;
+          }
+
+          // 横方向1行スクロール
+          if (x > 0.8 && !hasScrolledX) {
+            hasScrolledX = true;  // 右端を注視したらフラグを立てる
+          } else if (x < 0.2 && hasScrolledX) {
+            window.scrollBy(0, 30); // xが0.8以下に戻ったタイミングでスクロール
+            hasScrolledX = false;   // フラグをリセット
+          }
+          // ↓右端を見た時のスクロールコード
+          // 1.視線が右端（x > 0.8）にあり、
+          // 2.まだスクロールしていなくて、
+          // 3.視線が前回よりも右方向に動いているとき
+          // if (x > 0.8 && !hasScrolledX && lastGazeX < x) {
+          //   window.scrollBy(0, 30);
+          //   hasScrolledX = true;
+          // } else if (x < 0.5) {
+          //   hasScrolledX = false;
+          // }
+
+          // 左上エリアで先頭に戻る
+          if (x < 0.2 && y < 0.2) {
+            if (!scrollBackStartTime) {
+              scrollBackStartTime = currentTime;
+            } else if (currentTime - scrollBackStartTime > 500) {
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+              scrollBackStartTime = null;
+            }
+          } else {
+            scrollBackStartTime = null;
+          }
+
+          checkGazeOnIcon(x, y);
+          checkGazeOnDownIcon(x, y);
+
+          lastGazeX = x;
+          lastGazePosition = position;
+        })
+        .catch(e => console.error('視線データ取得エラー:', e));
+    }
+
+    setInterval(getGazeData, 100);
+  </script>
+</body>
+</html>
