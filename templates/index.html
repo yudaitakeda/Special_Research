@@ -167,6 +167,7 @@
         .then(data => {
           const x = data.x;
           const y = data.y;
+          console.log(`GazeX: ${x.toFixed(3)}, GazeY: ${y.toFixed(3)}`);
           const currentTime = Date.now();
           const position = { x, y };
 
