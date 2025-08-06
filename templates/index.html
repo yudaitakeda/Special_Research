@@ -192,10 +192,10 @@
           }
 
           // 横方向1行スクロール
-          if (x > 0.8 && !hasScrolledX) {
+          if (x > 0.6 && !hasScrolledX) {
             hasScrolledX = true;  // 右端を注視したらフラグを立てる
-          } else if (x < 0.2 && hasScrolledX) {
-            window.scrollBy(0, 30); // xが0.8以下に戻ったタイミングでスクロール
+          } else if (x < 0.6 && hasScrolledX) {
+            window.scrollBy(0, 30); // xが0.6以下に戻ったタイミングでスクロール
             hasScrolledX = false;   // フラグをリセット
           }
           // ↓右端を見た時のスクロールコード
