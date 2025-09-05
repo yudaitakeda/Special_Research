@@ -37,11 +37,16 @@
       margin-top: 100px;
       font-size: 32px;
     }
-    #page-number {
+    /* タイマーを右下に表示 */
+    #timer {
       position: fixed;
       bottom: 20px;
       right: 20px;
-      font-size: 18px;
+      font-size: 22px;
+      font-weight: bold;
+      background: rgba(255, 255, 255, 0.6);
+      padding: 6px 12px;
+      border-radius: 8px;
     }
     #gaze-cursor {
       position: fixed;
@@ -64,7 +69,8 @@
     <p id="page-content">{{ page_text }}</p>
     <a href="/distance_travelled">視線移動距離のページを見る</a>
   </div>
-  <div id="page-number">Page: 1</div>
+  <!-- Page: 1 削除 -->
+  <div id="timer">0:00</div> <!-- タイマー追加 -->
   <div class="scroll-icon-container">
     <div id="scroll-icon" class="scroll-icon">⬆️</div>
     <div id="scroll-icon-down" class="scroll-icon">⬇️</div>
@@ -178,38 +184,21 @@
           if (lastGazePosition && isSamePosition(position, lastGazePosition)) {
             if (!gazeHoldStartTime) gazeHoldStartTime = currentTime;
             else if (currentTime - gazeHoldStartTime > HOLD_DURATION) {
-              // if (x > 0.7 && y > 0.3 && y < 0.7) scrollWithCursor(x, y, 'right');
-              // else if (x < 0.3 && y > 0.3 && y < 0.7) scrollWithCursor(x, y, 'left');
-              // 上方向：上端20%かつ 左右端20%以内
-            if (y < 0.2 && (x > 0.3 && x < 0.7)) scrollWithCursor(x, y, 'up');
-            // 下方向：下端20%かつ 左右端20%以内
-            else if (y > 0.9 && (x > 0.3 && x < 0.7)) scrollWithCursor(x, y, 'down');
-              // else scrollWithCursor(x, y, 'down');
+              if (y < 0.2 && (x > 0.3 && x < 0.7)) scrollWithCursor(x, y, 'up');
+              else if (y > 0.9 && (x > 0.3 && x < 0.7)) scrollWithCursor(x, y, 'down');
               gazeHoldStartTime = null;
             }
           } else {
             gazeHoldStartTime = null;
           }
 
-          // 横方向1行スクロール
           if (x > 0.8 && !hasScrolledX) {
-            hasScrolledX = true;  // 右端を注視したらフラグを立てる
+            hasScrolledX = true;
           } else if (x < 0.2 && hasScrolledX) {
-            window.scrollBy(0, 30); // xが0.8以下に戻ったタイミングでスクロール
-            hasScrolledX = false;   // フラグをリセット
+            window.scrollBy(0, 30);
+            hasScrolledX = false;
           }
-          // ↓右端を見た時のスクロールコード
-          // 1.視線が右端（x > 0.8）にあり、
-          // 2.まだスクロールしていなくて、
-          // 3.視線が前回よりも右方向に動いているとき
-          // if (x > 0.8 && !hasScrolledX && lastGazeX < x) {
-          //   window.scrollBy(0, 30);
-          //   hasScrolledX = true;
-          // } else if (x < 0.5) {
-          //   hasScrolledX = false;
-          // }
 
-          // 左上エリアで先頭に戻る
           if (x < 0.2 && y < 0.2) {
             if (!scrollBackStartTime) {
               scrollBackStartTime = currentTime;
@@ -231,6 +220,40 @@
     }
 
     setInterval(getGazeData, 100);
+
+    // ===== タイマー機能 =====
+    let timerInterval = null;
+    let elapsedSeconds = 0;
+
+    function updateTimerDisplay() {
+      const minutes = Math.floor(elapsedSeconds / 60);
+      const seconds = elapsedSeconds % 60;
+      document.getElementById("timer").textContent =
+        `${minutes}:${seconds.toString().padStart(2, "0")}`;
+    }
+
+    function startTimer() {
+      if (timerInterval) return;
+      timerInterval = setInterval(() => {
+        elapsedSeconds++;
+        updateTimerDisplay();
+      }, 1000);
+    }
+
+    function stopTimer() {
+      clearInterval(timerInterval);
+      timerInterval = null;
+    }
+
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "a") {
+        startTimer();
+      } else if (event.key === "s") {
+        stopTimer();
+      }
+    });
+
+    updateTimerDisplay();
   </script>
 </body>
 </html>

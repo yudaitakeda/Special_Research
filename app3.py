@@ -1,4 +1,4 @@
-# トラックパッド使用
+# 視線戻ったとき
 from flask import Flask, jsonify, render_template
 import tobii_research as tr
 import threading
