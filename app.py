@@ -1,82 +1,108 @@
-from flask import Flask, jsonify, render_template
+from flask import Flask, render_template, url_for, jsonify
+import os
 import tobii_research as tr
 import threading
 import math
-import csv
 import time
-from flask_cors import CORS  # ← 追加
 
 app = Flask(__name__)
-CORS(app)  # ← これで全オリジンからのアクセスを許可
 
-# 視線データを保持する変数
-gaze_data = {'x': 0, 'y': 0}
-last_gaze_data = {'x': 0, 'y': 0}  # 前回の視線位置
-distance_travelled = 0  # 視線の総移動距離
+# ----------------------------
+# 視線データ管理
+# ----------------------------
+gaze_data = {'x': 0.5, 'y': 0.5}  # 初期値中央
+last_gaze_data = {'x': 0.5, 'y': 0.5}
 
-# デバイスの初期化
+# ----------------------------
+# Tobiiデバイス検出
+# ----------------------------
 found_eyetrackers = tr.find_all_eyetrackers()
 if len(found_eyetrackers) > 0:
     eyetracker = found_eyetrackers[0]
+    print(f"Tobiiデバイス検出: {eyetracker.model} ({eyetracker.address})")
 else:
     eyetracker = None
-    print("Tobiiデバイスが見つかりませんでした")
+    print("Tobiiデバイスが見つかりません")
 
-# 視線データ取得のコールバック関数
-def gaze_data_callback(gaze_data_response):
-    global gaze_data, last_gaze_data, distance_travelled
+# ----------------------------
+# 視線コールバック
+# ----------------------------
+def gaze_data_callback(response):
+    global gaze_data, last_gaze_data
+    if response['left_gaze_point_validity'] and response['right_gaze_point_validity']:
+        x = (response['left_gaze_point_on_display_area'][0] +
+             response['right_gaze_point_on_display_area'][0]) / 2
+        y = (response['left_gaze_point_on_display_area'][1] +
+             response['right_gaze_point_on_display_area'][1]) / 2
+        gaze_data['x'] = x
+        gaze_data['y'] = y
+        last_gaze_data['x'] = x
+        last_gaze_data['y'] = y
 
-    if gaze_data_response['left_gaze_point_validity'] and gaze_data_response['right_gaze_point_validity']:
-        # 視線の座標（中央の視線）を計算
-        gaze_data['x'] = (gaze_data_response['left_gaze_point_on_display_area'][0] +
-                          gaze_data_response['right_gaze_point_on_display_area'][0]) / 2
-        gaze_data['y'] = (gaze_data_response['left_gaze_point_on_display_area'][1] +
-                          gaze_data_response['right_gaze_point_on_display_area'][1]) / 2
+# ----------------------------
+# ディレクトリ設定
+# ----------------------------
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.path.join(BASE_DIR, 'data', 'files', 'text')  # textフォルダまで
 
-        # 視線の移動距離を計算
-        distance = math.sqrt((gaze_data['x'] - last_gaze_data['x'])**2 + (gaze_data['y'] - last_gaze_data['y'])**2)
-        distance_travelled += distance  # 総移動距離に加算
-
-        # 現在の視線位置を前回位置として保存
-        last_gaze_data['x'] = gaze_data['x']
-        last_gaze_data['y'] = gaze_data['y']
-
-        # 視線データをCSVに保存
-        save_gaze_data_to_csv(gaze_data)
-
-# CSVに視線データを保存する関数
-def save_gaze_data_to_csv(gaze_data):
-    with open('gaze_data.csv', mode='a', newline='') as file:
-        writer = csv.writer(file)
-        # 視線データをCSVに書き込む（時間も一緒に記録）
-        writer.writerow([time.time(), gaze_data['x'], gaze_data['y']])
-
-# content.txtファイルの読み込み関数
-def get_page_text():
-    with open('data/content.txt', 'r', encoding='utf-8') as f:
-        return f.read()
-
-# 視線データを取得するAPI
+# ----------------------------
+# ルート：視線データ取得
+# ----------------------------
 @app.route('/gaze_data')
 def get_gaze_data():
     return jsonify(gaze_data)
 
-# 視線の総移動距離を取得するAPI
-@app.route('/distance_travelled')
-def get_distance_travelled():
-    return jsonify({'distance_travelled': distance_travelled})
-
-# メインページ
+# ----------------------------
+# トップページ：作者一覧
+# ----------------------------
 @app.route('/')
 def index():
-    page_text = get_page_text()  # content.txtから文章を取得
-    return render_template('index.html', page_text=page_text)
+    authors = [name for name in os.listdir(DATA_DIR)
+               if os.path.isdir(os.path.join(DATA_DIR, name))]
+    authors.sort()
+    return render_template('index.html', authors=authors)
 
+# ----------------------------
+# 作者ページ：作品一覧
+# ----------------------------
+@app.route('/author/<author>')
+def author_page(author):
+    author_path = os.path.join(DATA_DIR, author)
+    if not os.path.exists(author_path):
+        return f"{author} は存在しません", 404
+
+    works = [f for f in os.listdir(author_path)
+             if os.path.isfile(os.path.join(author_path, f))]
+    works.sort()
+    return render_template('author.html', author=author, works=works)
+
+# ----------------------------
+# 作品ページ：本文表示
+# ----------------------------
+@app.route('/files/<author>/<work>')
+def serve_file(author, work):
+    path = os.path.join(DATA_DIR, author, work)
+    if os.path.exists(path) and os.path.isfile(path):
+        with open(path, 'r', encoding='utf-8') as f:
+            content = f.read()
+        return render_template(
+            'work.html',
+            author=author,
+            work_name=work,
+            content=content
+        )
+    else:
+        return "作品が見つかりません", 404
+
+# ----------------------------
+# メイン処理
+# ----------------------------
 if __name__ == '__main__':
+    # Tobiiがある場合は別スレッドで視線データ取得
     if eyetracker:
-        tracking_thread = threading.Thread(target=lambda: eyetracker.subscribe_to(tr.EYETRACKER_GAZE_DATA, gaze_data_callback, as_dictionary=True))
-        tracking_thread.daemon = True
-        tracking_thread.start()
+        thread = threading.Thread(target=lambda: eyetracker.subscribe_to(
+            tr.EYETRACKER_GAZE_DATA, gaze_data_callback, as_dictionary=True))
+        thread.daemon = True
+        thread.start()
 
     app.run(debug=True, port=5001)
-

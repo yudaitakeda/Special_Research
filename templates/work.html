@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{% block title %}{{ work_name }}{% endblock %}
+
+{% block content %}
+<h1 class="work-title">
+  {{ author }} の {{ work_name }}
+</h1>
+
+<div class="work-content">
+  {{ content.replace('\n', '<br>') | safe }}
+</div>
+
+<div class="back-link">
+  <a href="{{ url_for('author_page', author=author) }}">← 作品一覧に戻る</a>
+</div>
+
+<!-- 視線カーソル -->
+<div id="gaze-cursor"></div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='gaze_scroll.js') }}"></script>
+{% endblock %}
