@@ -50,12 +50,12 @@ def get_authors():
 @app.route('/api/works/<author>')
 def get_works(author):
     folder = os.path.join(BASE_PATH, author)
-    works = [os.path.splitext(f)[0] for f in os.listdir(folder) if f.endswith('.txt')]
+    works = [os.path.splitext(f)[0] for f in os.listdir(folder) if f.endswith('.html')]
     return jsonify(works)
 
 @app.route('/api/work/<author>/<title>')
 def get_work(author, title):
-    path = os.path.join(BASE_PATH, author, f"{title}.txt")
+    path = os.path.join(BASE_PATH, author, f"{title}.html")
     try:
         with open(path, encoding='utf-8') as f:
             content = f.read()
