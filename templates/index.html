@@ -1,11 +1,104 @@
-{% extends "base.html" %}
-{% block title %}作者一覧{% endblock %}
-{% block content %}
-<h1>作者一覧</h1>
-<!-- <a href="/files/text/filename.txt">ジャンプ</a> -->
-<ul>
-  {% for author in authors %}
-    <li><a href="{{ url_for('author_page', author=author) }}">{{ author }}</a></li>
-  {% endfor %}
-</ul>
-{% endblock %}
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>動的読書ツール</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      line-height: 1.8;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    select {
+      margin: 10px;
+      padding: 5px 10px;
+    }
+    .work-container {
+      background: white;
+      border-radius: 8px;
+      padding: 20px;
+      margin-top: 20px;
+      min-height: 80vh;
+      overflow: hidden;
+    }
+    #gaze-cursor {
+      position: fixed;
+      width: 20px;
+      height: 20px;
+      border: 2px solid red;
+      border-radius: 50%;
+      pointer-events: none;
+      transform: translate(-50%, -50%);
+      display: none;
+      z-index: 9999;
+    }
+  </style>
+</head>
+<body>
+  <h1>視線対応・動的読書ツール</h1>
+
+  <div>
+    <label>作者：</label>
+    <select id="authorSelect"><option>-- 読みたい作者を選択 --</option></select>
+
+    <label>作品：</label>
+    <select id="workSelect"><option>-- 作品を選択 --</option></select>
+  </div>
+
+  <div class="work-container">
+    <h2 id="work-title"></h2>
+    <div id="work-content"></div>
+  </div>
+
+  <div id="gaze-cursor"></div>
+
+  <script src="{{ url_for('static', filename='gaze_scroll.js') }}"></script>
+
+  <script>
+    // ==== 作者リスト取得 ====
+    fetch('/api/authors')
+      .then(res => res.json())
+      .then(authors => {
+        const select = document.getElementById('authorSelect');
+        authors.forEach(a => {
+          const opt = document.createElement('option');
+          opt.value = a;
+          opt.textContent = a;
+          select.appendChild(opt);
+        });
+      });
+
+    // ==== 作者選択時に作品一覧を取得 ====
+    document.getElementById('authorSelect').addEventListener('change', e => {
+      const author = e.target.value;
+      fetch(`/api/works/${author}`)
+        .then(res => res.json())
+        .then(works => {
+          const select = document.getElementById('workSelect');
+          select.innerHTML = '<option>-- 作品を選択 --</option>';
+          works.forEach(w => {
+            const opt = document.createElement('option');
+            opt.value = w;
+            opt.textContent = w;
+            select.appendChild(opt);
+          });
+        });
+    });
+
+    // ==== 作品選択時に本文取得 ====
+    document.getElementById('workSelect').addEventListener('change', e => {
+      const author = document.getElementById('authorSelect').value;
+      const title = e.target.value;
+      fetch(`/api/work/${author}/${title}`)
+        .then(res => res.json())
+        .then(data => {
+          document.getElementById('work-title').textContent = `${data.author}『${data.title}』`;
+          document.getElementById('work-content').innerHTML = data.content.replace(/\n/g, '<br>');
+          window.scrollTo(0, 0);
+        });
+    });
+  </script>
+</body>
+</html>
