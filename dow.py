@@ -7,8 +7,8 @@ class AozoraCardFetcher:
     def __init__(self):
         # 設定（ここで一括定義）
         self.base_url = "https://www.aozora.gr.jp"
-        self.author_id = "1833"
-        self.author_name = "鈴木大拙"
+        self.author_id = "148"
+        self.author_name = "夏目漱石"
         self.author_page = f"{self.base_url}/index_pages/person{self.author_id}.html"
         self.card_urls = []
 
