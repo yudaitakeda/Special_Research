@@ -1,82 +1,71 @@
 from flask import Flask, jsonify, render_template
 import tobii_research as tr
-import threading
-import math
-import csv
-import time
-from flask_cors import CORS  # ← 追加
+import threading, math, csv, time, os
+from flask_cors import CORS
 
 app = Flask(__name__)
-CORS(app)  # ← これで全オリジンからのアクセスを許可
+CORS(app)
 
-# 視線データを保持する変数
+# ========= 視線データ関連 =========
 gaze_data = {'x': 0, 'y': 0}
-last_gaze_data = {'x': 0, 'y': 0}  # 前回の視線位置
-distance_travelled = 0  # 視線の総移動距離
+last_gaze_data = {'x': 0, 'y': 0}
+distance_travelled = 0
 
-# デバイスの初期化
 found_eyetrackers = tr.find_all_eyetrackers()
-if len(found_eyetrackers) > 0:
-    eyetracker = found_eyetrackers[0]
-else:
-    eyetracker = None
-    print("Tobiiデバイスが見つかりませんでした")
+eyetracker = found_eyetrackers[0] if found_eyetrackers else None
 
-# 視線データ取得のコールバック関数
 def gaze_data_callback(gaze_data_response):
     global gaze_data, last_gaze_data, distance_travelled
-
     if gaze_data_response['left_gaze_point_validity'] and gaze_data_response['right_gaze_point_validity']:
-        # 視線の座標（中央の視線）を計算
         gaze_data['x'] = (gaze_data_response['left_gaze_point_on_display_area'][0] +
                           gaze_data_response['right_gaze_point_on_display_area'][0]) / 2
         gaze_data['y'] = (gaze_data_response['left_gaze_point_on_display_area'][1] +
                           gaze_data_response['right_gaze_point_on_display_area'][1]) / 2
-
-        # 視線の移動距離を計算
         distance = math.sqrt((gaze_data['x'] - last_gaze_data['x'])**2 + (gaze_data['y'] - last_gaze_data['y'])**2)
-        distance_travelled += distance  # 総移動距離に加算
-
-        # 現在の視線位置を前回位置として保存
-        last_gaze_data['x'] = gaze_data['x']
-        last_gaze_data['y'] = gaze_data['y']
-
-        # 視線データをCSVに保存
+        distance_travelled += distance
+        last_gaze_data.update(gaze_data)
         save_gaze_data_to_csv(gaze_data)
 
-# CSVに視線データを保存する関数
-def save_gaze_data_to_csv(gaze_data):
-    with open('gaze_data.csv', mode='a', newline='') as file:
-        writer = csv.writer(file)
-        # 視線データをCSVに書き込む（時間も一緒に記録）
-        writer.writerow([time.time(), gaze_data['x'], gaze_data['y']])
+def save_gaze_data_to_csv(data):
+    with open('gaze_data.csv', 'a', newline='') as f:
+        writer = csv.writer(f)
+        writer.writerow([time.time(), data['x'], data['y']])
 
-# content.txtファイルの読み込み関数
-def get_page_text():
-    with open('data/content.txt', 'r', encoding='utf-8') as f:
-        return f.read()
-
-# 視線データを取得するAPI
 @app.route('/gaze_data')
 def get_gaze_data():
     return jsonify(gaze_data)
 
-# 視線の総移動距離を取得するAPI
-@app.route('/distance_travelled')
-def get_distance_travelled():
-    return jsonify({'distance_travelled': distance_travelled})
+# ========= 読書データAPI =========
+BASE_PATH = "data/files/text"
 
-# メインページ
 @app.route('/')
 def index():
-    page_text = get_page_text()  # content.txtから文章を取得
-    return render_template('index.html', page_text=page_text)
+    return render_template('index.html')
+
+@app.route('/api/authors')
+def get_authors():
+    authors = [a for a in os.listdir(BASE_PATH) if os.path.isdir(os.path.join(BASE_PATH, a))]
+    return jsonify(authors)
+
+@app.route('/api/works/<author>')
+def get_works(author):
+    folder = os.path.join(BASE_PATH, author)
+    works = [os.path.splitext(f)[0] for f in os.listdir(folder) if f.endswith('.html')]
+    return jsonify(works)
+
+@app.route('/api/work/<author>/<title>')
+def get_work(author, title):
+    path = os.path.join(BASE_PATH, author, f"{title}.html")
+    try:
+        with open(path, encoding='utf-8') as f:
+            content = f.read()
+        return jsonify({'author': author, 'title': title, 'content': content})
+    except FileNotFoundError:
+        return jsonify({'error': 'not found'}), 404
 
 if __name__ == '__main__':
     if eyetracker:
-        tracking_thread = threading.Thread(target=lambda: eyetracker.subscribe_to(tr.EYETRACKER_GAZE_DATA, gaze_data_callback, as_dictionary=True))
-        tracking_thread.daemon = True
-        tracking_thread.start()
-
+        t = threading.Thread(target=lambda: eyetracker.subscribe_to(tr.EYETRACKER_GAZE_DATA, gaze_data_callback, as_dictionary=True))
+        t.daemon = True
+        t.start()
     app.run(debug=True, port=5001)
-

@@ -1,0 +1,8 @@
+<h1>{{ author }} の作品一覧</h1>
+<ul>
+  {% for work in works %}
+    <li>
+      <a href="{{ url_for('serve_file', author=author, work=work) }}">{{ work }}</a>
+    </li>
+  {% endfor %}
+</ul>
