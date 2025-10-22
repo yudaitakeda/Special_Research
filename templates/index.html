@@ -5,80 +5,121 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>動的読書ツール</title>
   <style>
+    /* =========================
+       ページ全体の基本デザイン
+    ========================= */
     body {
       font-family: sans-serif;
       line-height: 1.8;
       padding: 20px;
       background: #f5f5f5;
-      /* overflow: hidden; 縦横スクロールを無効化 */
+      /* overflow: hidden; ← 有効化すると縦横スクロールが無効になる */
     }
+
+    /* セレクトメニューの見た目調整 */
     select {
       margin: 10px;
       padding: 5px 10px;
     }
+
+    /* 作品本文を表示する領域 */
     .work-container {
       background: white;
       border-radius: 8px;
       padding: 20px;
       margin-top: 20px;
-      min-height: 80vh;
-      overflow: hidden;
+      min-height: 80vh; /* 画面の8割高さを確保 */
+      overflow: hidden; /* 内容がはみ出してもスクロールバーを出さない */
     }
+
+    /* 視線カーソルの見た目（赤い円） */
     #gaze-cursor {
       position: fixed;
       width: 20px;
       height: 20px;
       border: 2px solid red;
       border-radius: 50%;
-      pointer-events: none;
+      pointer-events: none; /* カーソルがクリックを邪魔しないように */
       transform: translate(-50%, -50%);
-      display: none;
-      z-index: 9999;
+      display: none; /* 初期は非表示 */
+      z-index: 9999; /* 最前面に表示 */
     }
   </style>
 </head>
 <body>
   <!-- <h1>視線対応・動的読書ツール</h1> -->
+  <!-- ↑ 見出しは非表示にしているが、デザイン調整で復活可 -->
 
+  <!-- ======================
+       作者・作品の選択メニュー
+  ====================== -->
   <div>
     <label>作者：</label>
-    <select id="authorSelect"><option>-- 読みたい作者を選択 --</option></select>
+    <!-- 作者一覧を格納するセレクトメニュー -->
+    <select id="authorSelect">
+      <option>-- 読みたい作者を選択 --</option>
+    </select>
 
     <label>作品：</label>
-    <select id="workSelect"><option>-- 作品を選択 --</option></select>
+    <!-- 作品一覧を格納するセレクトメニュー -->
+    <select id="workSelect">
+      <option>-- 作品を選択 --</option>
+    </select>
   </div>
 
+  <!-- ======================
+       本文表示エリア
+  ====================== -->
   <div class="work-container">
+    <!-- 選択された作品タイトル -->
     <h2 id="work-title"></h2>
+
+    <!-- 選択された作品本文 -->
     <div id="work-content"></div>
   </div>
 
+  <!-- ======================
+       視線カーソル（赤い点）
+  ====================== -->
   <div id="gaze-cursor"></div>
 
+  <!-- 視線スクロール用の外部スクリプトを読み込む -->
   <script src="{{ url_for('static', filename='gaze_scroll.js') }}"></script>
 
+
   <script>
-    // ==== 作者リスト取得 ====
+    // ===============================
+    // 作者一覧をサーバーから取得してメニューに追加
+    // ===============================
     fetch('/api/authors')
       .then(res => res.json())
       .then(authors => {
         const select = document.getElementById('authorSelect');
+        // 取得した作者リストをセレクトメニューに1件ずつ追加
         authors.forEach(a => {
           const opt = document.createElement('option');
-          opt.value = a;
-          opt.textContent = a;
+          opt.value = a;       // APIで使う値
+          opt.textContent = a; // 画面上に表示する文字
           select.appendChild(opt);
         });
       });
 
-    // ==== 作者選択時に作品一覧を取得 ====
+
+    // ===============================
+    // 作者が選ばれたときに作品リストを更新
+    // ===============================
     document.getElementById('authorSelect').addEventListener('change', e => {
-      const author = e.target.value;
+      const author = e.target.value; // 選択された作者名を取得
+
+      // Flask APIにアクセスして作品一覧を取得
       fetch(`/api/works/${author}`)
         .then(res => res.json())
         .then(works => {
           const select = document.getElementById('workSelect');
+          // メニューを初期状態に戻す
           select.innerHTML = '<option>-- 作品を選択 --</option>';
+
+          // 取得した作品を1件ずつ追加
           works.forEach(w => {
             const opt = document.createElement('option');
             opt.value = w;
@@ -88,15 +129,25 @@
         });
     });
 
-    // ==== 作品選択時に本文取得 ====
+
+    // ===============================
+    // 作品が選ばれたときに本文を取得して表示
+    // ===============================
     document.getElementById('workSelect').addEventListener('change', e => {
-      const author = document.getElementById('authorSelect').value;
-      const title = e.target.value;
+      const author = document.getElementById('authorSelect').value; // 現在選択中の作者
+      const title = e.target.value; // 選択された作品名
+
+      // Flask APIにアクセスして作品本文を取得
       fetch(`/api/work/${author}/${title}`)
         .then(res => res.json())
         .then(data => {
+          // タイトルを表示
           document.getElementById('work-title').textContent = `${data.author}『${data.title}』`;
+
+          // 本文をHTMLに挿入（改行を <br> に変換）
           document.getElementById('work-content').innerHTML = data.content.replace(/\n/g, '<br>');
+
+          // ページを先頭にスクロール（毎回リセット）
           window.scrollTo(0, 0);
         });
     });
