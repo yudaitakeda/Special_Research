@@ -44,12 +44,37 @@
       display: none; /* 初期は非表示 */
       z-index: 9999; /* 最前面に表示 */
     }
+
+        .gaze-zone-left {
+      position: fixed;
+      left: 0;
+      bottom: 0;
+      width: 20%;
+      height: 20%;
+      background-color: rgba(0, 255, 0, 0.2); /* 薄い緑 */
+      pointer-events: none; /* マウス操作を邪魔しない */
+      z-index: 999;
+    }
+
+    /* 右下エリア（大きく） */
+    .gaze-zone-right {
+      position: fixed;
+      right: 0;
+      bottom: 0;
+      width: 20%;
+      height: 20%;
+      background-color: rgba(0, 255, 0, 0.2); /* 薄い緑 */
+      pointer-events: none;
+      z-index: 999;
+    }
   </style>
 </head>
 <body>
   <!-- <h1>視線対応・動的読書ツール</h1> -->
   <!-- ↑ 見出しは非表示にしているが、デザイン調整で復活可 -->
-
+  <!-- 注視エリア表示 ここをコメントアウトすれば緑消える-->
+    <div class="gaze-zone-left"></div>
+    <div class="gaze-zone-right"></div>
   <!-- ======================
        作者・作品の選択メニュー
   ====================== -->
