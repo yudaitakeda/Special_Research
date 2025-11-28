@@ -3,179 +3,241 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>動的読書ツール</title>
+  <title>視線対応・動的読書ツール</title>
+
   <style>
-    /* =========================
-       ページ全体の基本デザイン
-    ========================= */
     body {
       font-family: sans-serif;
       line-height: 1.8;
       padding: 20px;
       background: #f5f5f5;
-      /* overflow: hidden; ← 有効化すると縦横スクロールが無効になる */
     }
 
-    /* セレクトメニューの見た目調整 */
-    select {
-      margin: 10px;
-      padding: 5px 10px;
+    /* -------------------------
+       作者・作品メニューの見た目
+       ------------------------- */
+    .menu-section {
+      display: flex;
+      flex-wrap: wrap; /* 横に並ばない場合は折り返す */
+      gap: 8px;
+      margin-bottom: 20px;
     }
 
-    /* 作品本文を表示する領域 */
+    .menu-item {
+      background: white;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      padding: 10px 16px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    /* 視線が当たっているとき（JS でクラス追加） */
+    .menu-item:hover,
+    .menu-item.gaze-focus {
+      background: #e0f7fa;
+      border-color: #00acc1;
+    }
+
+    /* -------------------------
+       本文エリアのデザイン
+       ------------------------- */
     .work-container {
       background: white;
       border-radius: 8px;
       padding: 20px;
-      margin-top: 20px;
-      min-height: 80vh; /* 画面の8割高さを確保 */
-      overflow: hidden; /* 内容がはみ出してもスクロールバーを出さない */
+      min-height: 80vh; /* ある程度の高さを確保 */
+      overflow: hidden;
     }
 
-    /* 視線カーソルの見た目（赤い円） */
+    /* -------------------------
+       視線カーソル（赤丸）
+       ------------------------- */
     #gaze-cursor {
       position: fixed;
       width: 20px;
       height: 20px;
       border: 2px solid red;
       border-radius: 50%;
-      pointer-events: none; /* カーソルがクリックを邪魔しないように */
+      pointer-events: none; /* クリックを邪魔しない */
       transform: translate(-50%, -50%);
-      display: none; /* 初期は非表示 */
-      z-index: 9999; /* 最前面に表示 */
+      display: none; /* 既存 gaze_scroll.js が表示制御 */
+      z-index: 9999;
     }
 
-        .gaze-zone-left {
-      position: fixed;
-      left: 0;
-      bottom: 0;
-      width: 20%;
-      height: 20%;
-      background-color: rgba(0, 255, 0, 0.2); /* 薄い緑 */
-      pointer-events: none; /* マウス操作を邪魔しない */
-      z-index: 999;
-    }
-
-    /* 右下エリア（大きく） */
+    /* 右下のズームエリア（既存機能） */
+    .gaze-zone-left,
     .gaze-zone-right {
       position: fixed;
-      right: 0;
-      bottom: 0;
       width: 20%;
       height: 20%;
-      background-color: rgba(0, 255, 0, 0.2); /* 薄い緑 */
+      bottom: 0;
+      background-color: rgba(0,255,0,0.2);
       pointer-events: none;
       z-index: 999;
     }
+
+    .gaze-zone-left { left: 0; }
+    .gaze-zone-right { right: 0; }
   </style>
 </head>
 <body>
-  <!-- <h1>視線対応・動的読書ツール</h1> -->
-  <!-- ↑ 見出しは非表示にしているが、デザイン調整で復活可 -->
-  <!-- 注視エリア表示 ここをコメントアウトすれば緑消える-->
-    <div class="gaze-zone-left"></div>
-    <div class="gaze-zone-right"></div>
-  <!-- ======================
-       作者・作品の選択メニュー
-  ====================== -->
-  <div>
-    <label>作者：</label>
-    <!-- 作者一覧を格納するセレクトメニュー -->
-    <select id="authorSelect">
-      <option>-- 読みたい作者を選択 --</option>
-    </select>
 
-    <label>作品：</label>
-    <!-- 作品一覧を格納するセレクトメニュー -->
-    <select id="workSelect">
-      <option>-- 作品を選択 --</option>
-    </select>
-  </div>
+  <!-- ズーム機能用 -->
+  <div class="gaze-zone-left"></div>
+  <div class="gaze-zone-right"></div>
 
-  <!-- ======================
-       本文表示エリア
-  ====================== -->
-  <div class="work-container">
-    <!-- 選択された作品タイトル -->
+  <h3>作者を選択：</h3>
+  <div id="authorMenu" class="menu-section"></div>
+
+  <h3>作品を選択：</h3>
+  <div id="workMenu" class="menu-section"></div>
+
+  <!-- 本文表示エリア -->
+  <div class="work-container" id="work-container">
     <h2 id="work-title"></h2>
-
-    <!-- 選択された作品本文 -->
     <div id="work-content"></div>
   </div>
 
-  <!-- ======================
-       視線カーソル（赤い点）
-  ====================== -->
+  <!-- 視線カーソル -->
   <div id="gaze-cursor"></div>
 
-  <!-- 視線スクロール用の外部スクリプトを読み込む -->
+  <!-- 既存のスクロール機能 -->
   <script src="{{ url_for('static', filename='gaze_scroll.js') }}"></script>
 
-
   <script>
-    // ===============================
-    // 作者一覧をサーバーから取得してメニューに追加
-    // ===============================
+    /* ==========================================================
+       1. 作者リスト取得
+       ========================================================== */
     fetch('/api/authors')
       .then(res => res.json())
       .then(authors => {
-        const select = document.getElementById('authorSelect');
-        // 取得した作者リストをセレクトメニューに1件ずつ追加
+        const menu = document.getElementById('authorMenu');
+
         authors.forEach(a => {
-          const opt = document.createElement('option');
-          opt.value = a;       // APIで使う値
-          opt.textContent = a; // 画面上に表示する文字
-          select.appendChild(opt);
-        });
+          const div = document.createElement('div');
+          div.textContent = a;
+          div.className = 'menu-item';
+
+          // クリック（視線クリックもここに来る）
+          div.addEventListener('click', () => loadWorks(a));
+
+          menu.appendChild(div);
+        })
       });
 
-
-    // ===============================
-    // 作者が選ばれたときに作品リストを更新
-    // ===============================
-    document.getElementById('authorSelect').addEventListener('change', e => {
-      const author = e.target.value; // 選択された作者名を取得
-
-      // Flask APIにアクセスして作品一覧を取得
+    /* ==========================================================
+       2. 作品リスト取得
+       ========================================================== */
+    function loadWorks(author) {
       fetch(`/api/works/${author}`)
         .then(res => res.json())
         .then(works => {
-          const select = document.getElementById('workSelect');
-          // メニューを初期状態に戻す
-          select.innerHTML = '<option>-- 作品を選択 --</option>';
+          const menu = document.getElementById('workMenu');
+          menu.innerHTML = '';  // 前の作品リストを消す
 
-          // 取得した作品を1件ずつ追加
           works.forEach(w => {
-            const opt = document.createElement('option');
-            opt.value = w;
-            opt.textContent = w;
-            select.appendChild(opt);
+            const div = document.createElement('div');
+            div.textContent = w;
+            div.className = 'menu-item';
+
+            div.addEventListener('click', () => loadWorkContent(author, w));
+
+            menu.appendChild(div);
           });
         });
-    });
+    }
 
-
-    // ===============================
-    // 作品が選ばれたときに本文を取得して表示
-    // ===============================
-    document.getElementById('workSelect').addEventListener('change', e => {
-      const author = document.getElementById('authorSelect').value; // 現在選択中の作者
-      const title = e.target.value; // 選択された作品名
-
-      // Flask APIにアクセスして作品本文を取得
+    /* ==========================================================
+       3. 本文取得
+       ========================================================== */
+    function loadWorkContent(author, title) {
       fetch(`/api/work/${author}/${title}`)
         .then(res => res.json())
         .then(data => {
-          // タイトルを表示
-          document.getElementById('work-title').textContent = `${data.author}『${data.title}』`;
 
-          // 本文をHTMLに挿入（改行を <br> に変換）
-          document.getElementById('work-content').innerHTML = data.content.replace(/\n/g, '<br>');
+          // タイトル部分書き換え
+          document.getElementById('work-title').textContent =
+            `${data.author}『${data.title}』`;
 
-          // ページを先頭にスクロール（毎回リセット）
-          window.scrollTo(0, 0);
+          // 改行 → <br>
+          document.getElementById('work-content').innerHTML =
+            data.content.replace(/\n/g, '<br>');
+
+          // 画面トップへ
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+
+          // 本文エリアまで自動スクロール
+          document.getElementById('work-container')
+                  .scrollIntoView({ behavior: 'smooth' });
         });
-    });
+    }
+
+    /* ==========================================================
+       4. 視線による "メニュー項目のクリック" 判定
+       ========================================================== */
+
+    let gazeX = 0.5, gazeY = 0.5;  // 直近の視線座標（0〜1）
+    let currentFocus = null;        // 注視している要素
+    let focusStart = 0;             // 注視開始した時間
+    const FOCUS_TIME = 1000;        // 1秒注視でクリック
+
+    /* --- 視線取得ループ（100% 常時実行） --- */
+    async function updateGaze() {
+      try {
+        const res = await fetch('/gaze_data');
+        const data = await res.json();
+
+        gazeX = data.x;   // 0〜1
+        gazeY = data.y;   // 0〜1
+      } catch {}
+
+      requestAnimationFrame(updateGaze);
+    }
+    updateGaze();
+
+    /* --- 注視によるクリック判定 --- */
+    function checkFocus() {
+      const x = gazeX * window.innerWidth;
+      const y = gazeY * window.innerHeight;
+
+      // 作者・作品メニューすべて対象
+      const elements = document.querySelectorAll('.menu-item');
+      let focused = null;
+
+      // 視線が重なっている要素を探す
+      for (const el of elements) {
+        const rect = el.getBoundingClientRect();
+
+        if (x >= rect.left && x <= rect.right &&
+            y >= rect.top && y <= rect.bottom) {
+          focused = el;
+          break;
+        }
+      }
+
+      // まず全項目からハイライト削除
+      document.querySelectorAll('.menu-item')
+              .forEach(el => el.classList.remove('gaze-focus'));
+
+      // 視線が当たっている項目だけハイライト
+      if (focused) focused.classList.add('gaze-focus');
+
+      // 注視開始
+      if (focused !== currentFocus) {
+        currentFocus = focused;
+        focusStart = performance.now();   // 注視開始時刻をリセット
+      }
+      // 一定時間（FOCUS_TIME）注視 → click 発火
+      else if (focused && performance.now() - focusStart > FOCUS_TIME) {
+        focused.click();
+        focusStart = performance.now() + 1500;  // 誤連打防止（1.5秒）
+      }
+
+      requestAnimationFrame(checkFocus);
+    }
+    checkFocus();
   </script>
+
 </body>
 </html>
